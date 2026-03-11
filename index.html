@@ -1,0 +1,446 @@
+perfect<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Game of Thrones Family Tree</title>
+  <style>
+    :root {
+      --gold: #c9a84c;
+      --dark-gold: #8b6914;
+      --bg: #0d0d0d;
+      --panel-bg: #1a1a1a;
+      --border: #2e2e2e;
+      --text: #e8e0d0;
+      --text-dim: #8a8070;
+      --stark: #7ab3d4;
+      --lannister: #d4af37;
+      --targaryen: #c0392b;
+      --baratheon: #f39c12;
+      --tyrell: #27ae60;
+      --greyjoy: #6c757d;
+      --tully: #2980b9;
+      --martell: #e67e22;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Georgia', serif;
+      height: 100vh;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+
+    header {
+      background: linear-gradient(135deg, #111 0%, #1c1507 50%, #111 100%);
+      border-bottom: 2px solid var(--gold);
+      padding: 12px 24px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+    }
+
+    header h1 {
+      font-size: 1.6rem;
+      color: var(--gold);
+      letter-spacing: 2px;
+      text-shadow: 0 0 20px rgba(201, 168, 76, 0.4);
+    }
+
+    header p {
+      font-size: 0.8rem;
+      color: var(--text-dim);
+      font-style: italic;
+    }
+
+    .house-filter {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .filter-btn {
+      padding: 4px 12px;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      background: transparent;
+      color: var(--text-dim);
+      cursor: pointer;
+      font-size: 0.75rem;
+      font-family: 'Georgia', serif;
+      transition: all 0.2s;
+    }
+
+    .filter-btn:hover { border-color: var(--gold); color: var(--gold); }
+    .filter-btn.active { color: #000; font-weight: bold; }
+
+    .filter-btn[data-house="all"].active      { background: var(--gold);       border-color: var(--gold); }
+    .filter-btn[data-house="Stark"].active    { background: var(--stark);      border-color: var(--stark); }
+    .filter-btn[data-house="Lannister"].active{ background: var(--lannister);  border-color: var(--lannister); }
+    .filter-btn[data-house="Targaryen"].active{ background: var(--targaryen);  border-color: var(--targaryen); }
+    .filter-btn[data-house="Baratheon"].active{ background: var(--baratheon);  border-color: var(--baratheon); }
+    .filter-btn[data-house="Tyrell"].active   { background: var(--tyrell);     border-color: var(--tyrell); }
+    .filter-btn[data-house="Greyjoy"].active  { background: var(--greyjoy);    border-color: var(--greyjoy); }
+    .filter-btn[data-house="Tully"].active    { background: var(--tully);      border-color: var(--tully); }
+    .filter-btn[data-house="Martell"].active  { background: var(--martell);    border-color: var(--martell); }
+
+    .main {
+      display: flex;
+      flex: 1;
+      overflow: hidden;
+    }
+
+    #tree-container {
+      flex: 1;
+      overflow: hidden;
+      position: relative;
+      cursor: grab;
+    }
+
+    #tree-container.dragging { cursor: grabbing; }
+
+    #tree-canvas {
+      position: absolute;
+      transform-origin: 0 0;
+    }
+
+    svg#connections {
+      position: absolute;
+      top: 0; left: 0;
+      pointer-events: none;
+      overflow: visible;
+    }
+
+    .node {
+      position: absolute;
+      width: 130px;
+      cursor: pointer;
+      transition: transform 0.15s;
+      user-select: none;
+    }
+
+    .node:hover  { transform: scale(1.06); z-index: 10; }
+    .node.selected { z-index: 20; }
+
+    .node-card {
+      border-radius: 8px;
+      border: 2px solid var(--border);
+      background: var(--panel-bg);
+      overflow: hidden;
+      transition: border-color 0.2s, box-shadow 0.2s;
+    }
+
+    .node:hover .node-card,
+    .node.selected .node-card {
+      box-shadow: 0 0 16px rgba(201, 168, 76, 0.4);
+    }
+
+    .node.selected .node-card { border-color: var(--gold); }
+
+    .node-header { height: 6px; }
+
+    .node-body {
+      padding: 8px;
+      text-align: center;
+    }
+
+    .node-portrait {
+      width: 50px;
+      height: 50px;
+      border-radius: 50%;
+      margin: 0 auto 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 1.4rem;
+      border: 2px solid var(--border);
+    }
+
+    .node-name {
+      font-size: 0.72rem;
+      font-weight: bold;
+      color: var(--text);
+      line-height: 1.2;
+      margin-bottom: 2px;
+    }
+
+    .node-title {
+      font-size: 0.6rem;
+      color: var(--text-dim);
+      font-style: italic;
+    }
+
+    .node-status {
+      display: inline-block;
+      margin-top: 4px;
+      padding: 1px 6px;
+      border-radius: 10px;
+      font-size: 0.55rem;
+      font-weight: bold;
+      letter-spacing: 0.5px;
+    }
+
+    .status-alive   { background: rgba(39,174,96,0.25);  color: #27ae60; border: 1px solid #27ae60; }
+    .status-dead    { background: rgba(192,57,43,0.25);  color: #c0392b; border: 1px solid #c0392b; }
+    .status-unknown { background: rgba(100,100,100,0.25);color: #888;    border: 1px solid #888; }
+
+    .node.dimmed { opacity: 0.2; }
+
+    /* ── Detail panel ───────────────────────────────────────────────────── */
+    #detail-panel {
+      width: 320px;
+      background: var(--panel-bg);
+      border-left: 2px solid var(--border);
+      display: flex;
+      flex-direction: column;
+      overflow-y: auto;
+      flex-shrink: 0;
+      transition: transform 0.3s;
+    }
+
+    #detail-panel.hidden {
+      transform: translateX(100%);
+      width: 0;
+      border: none;
+      overflow: hidden;
+    }
+
+    .detail-header {
+      padding: 0;
+      background: linear-gradient(135deg, #1c1507 0%, #111 100%);
+      border-bottom: 1px solid var(--border);
+      position: relative;
+    }
+
+    .detail-house-banner { height: 8px; }
+
+    .detail-portrait {
+      width: 80px;
+      height: 80px;
+      border-radius: 50%;
+      margin: 20px auto 12px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 2.5rem;
+      border: 3px solid var(--gold);
+    }
+
+    .detail-name {
+      text-align: center;
+      font-size: 1.1rem;
+      color: var(--gold);
+      padding: 0 16px 4px;
+      line-height: 1.3;
+    }
+
+    .detail-house-name {
+      text-align: center;
+      font-size: 0.75rem;
+      color: var(--text-dim);
+      font-style: italic;
+      padding-bottom: 8px;
+    }
+
+    .detail-status-row {
+      text-align: center;
+      padding-bottom: 16px;
+    }
+
+    .detail-close {
+      position: absolute;
+      top: 12px;
+      right: 12px;
+      background: transparent;
+      border: 1px solid var(--border);
+      color: var(--text-dim);
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      cursor: pointer;
+      font-size: 1rem;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: all 0.2s;
+    }
+
+    .detail-close:hover { border-color: var(--gold); color: var(--gold); }
+
+    .detail-body { padding: 16px; flex: 1; }
+
+    .detail-section { margin-bottom: 16px; }
+
+    .detail-section h3 {
+      font-size: 0.7rem;
+      letter-spacing: 1.5px;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 8px;
+      border-bottom: 1px solid var(--border);
+      padding-bottom: 4px;
+    }
+
+    .detail-section p {
+      font-size: 0.82rem;
+      color: var(--text);
+      line-height: 1.6;
+    }
+
+    .detail-section ul { list-style: none; padding: 0; }
+
+    .detail-section ul li {
+      font-size: 0.8rem;
+      color: var(--text);
+      padding: 3px 0 3px 12px;
+      position: relative;
+    }
+
+    .detail-section ul li::before {
+      content: '»';
+      position: absolute;
+      left: 0;
+      color: var(--gold);
+    }
+
+    .relation-link {
+      color: var(--gold);
+      cursor: pointer;
+      text-decoration: underline;
+      text-decoration-color: transparent;
+      transition: text-decoration-color 0.2s;
+    }
+
+    .relation-link:hover { text-decoration-color: var(--gold); }
+
+    .quote {
+      font-style: italic;
+      color: var(--text-dim);
+      border-left: 2px solid var(--gold);
+      padding-left: 10px;
+      font-size: 0.78rem;
+      line-height: 1.5;
+    }
+
+    /* ── Overlaid controls ──────────────────────────────────────────────── */
+    .controls-hint {
+      position: absolute;
+      bottom: 12px;
+      left: 12px;
+      font-size: 0.65rem;
+      color: var(--text-dim);
+      background: rgba(0,0,0,0.7);
+      padding: 6px 10px;
+      border-radius: 6px;
+      border: 1px solid var(--border);
+      pointer-events: none;
+    }
+
+    .legend {
+      position: absolute;
+      top: 12px;
+      left: 12px;
+      background: rgba(0,0,0,0.8);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 8px 12px;
+      font-size: 0.65rem;
+      color: var(--text-dim);
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      margin-bottom: 4px;
+    }
+
+    .legend-line { width: 30px; height: 2px; }
+    .legend-line.parent  { background: var(--text-dim); }
+    .legend-line.married { background: var(--gold); border-top: 2px dashed var(--gold); height: 0; }
+
+    .zoom-controls {
+      position: absolute;
+      bottom: 12px;
+      right: 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+
+    .zoom-btn {
+      width: 32px;
+      height: 32px;
+      background: var(--panel-bg);
+      border: 1px solid var(--border);
+      color: var(--text);
+      font-size: 1.1rem;
+      cursor: pointer;
+      border-radius: 6px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      transition: border-color 0.2s;
+    }
+
+    .zoom-btn:hover { border-color: var(--gold); color: var(--gold); }
+  </style>
+</head>
+<body>
+
+<header>
+  <div>
+    <h1>Game of Thrones — Family Tree</h1>
+    <p>Click a character to learn more. Drag to pan. Scroll to zoom.</p>
+  </div>
+  <div class="house-filter">
+    <button class="filter-btn active" data-house="all">All Houses</button>
+    <button class="filter-btn" data-house="Stark">Stark</button>
+    <button class="filter-btn" data-house="Lannister">Lannister</button>
+    <button class="filter-btn" data-house="Targaryen">Targaryen</button>
+    <button class="filter-btn" data-house="Baratheon">Baratheon</button>
+    <button class="filter-btn" data-house="Tyrell">Tyrell</button>
+    <button class="filter-btn" data-house="Greyjoy">Greyjoy</button>
+    <button class="filter-btn" data-house="Tully">Tully</button>
+    <button class="filter-btn" data-house="Martell">Martell</button>
+  </div>
+</header>
+
+<div class="main">
+  <div id="tree-container">
+    <div id="tree-canvas">
+      <svg id="connections"></svg>
+    </div>
+    <div class="legend">
+      <div class="legend-item"><div class="legend-line parent"></div> Parent / Child</div>
+      <div class="legend-item"><div class="legend-line married"></div> Married</div>
+    </div>
+    <div class="controls-hint">Drag to pan &nbsp;|&nbsp; Scroll to zoom &nbsp;|&nbsp; Click to inspect</div>
+    <div class="zoom-controls">
+      <button class="zoom-btn" id="zoom-in">+</button>
+      <button class="zoom-btn" id="zoom-reset">&#8635;</button>
+      <button class="zoom-btn" id="zoom-out">&minus;</button>
+    </div>
+  </div>
+
+  <div id="detail-panel" class="hidden">
+    <div class="detail-header">
+      <div class="detail-house-banner" id="detail-banner"></div>
+      <button class="detail-close" id="panel-close">&#x2715;</button>
+      <div class="detail-portrait" id="detail-portrait"></div>
+      <div class="detail-name" id="detail-name"></div>
+      <div class="detail-house-name" id="detail-house-name"></div>
+      <div class="detail-status-row" id="detail-status"></div>
+    </div>
+    <div class="detail-body" id="detail-body"></div>
+  </div>
+</div>
+
+<script type="module" src="main.js"></script>
+</body>
+</html>
